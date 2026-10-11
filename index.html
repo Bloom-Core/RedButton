@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Big Red Button</title>
+<link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, Helvetica, sans-serif;
+            overflow: hidden;
+            transition: background-color 0.2s;
+        }
+
+        .score-container {
+            margin-bottom: 50px;
+        }
+        .score-label {
+            font-size: 4rem;
+            font-weight: normal;
+            color: #333333;
+            margin: 0;
+        }
+
+        .button-outer {
+            width: 75vw;
+            max-width: 300px;
+            aspect-ratio: 1;
+            background: #7a7a7a; 
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .button-inner {
+            width: 90%; 
+            height: 90%;
+            background: #ff0000;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            transform: translate(8px, -8px); 
+            box-shadow: -8px 8px 0px 0px #990000; 
+            transition: transform 0.05s linear, box-shadow 0.05s linear;
+        }
+
+        /* Replaced :active with a Javascript-triggered class */
+        .button-inner.is-pressed {
+            transform: translate(0px, 0px); 
+            box-shadow: 0px 0px 0px 0px #990000; 
+        }
+
+        .bg-menu {
+            position: absolute;
+            bottom: 40px; 
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        
+        .color-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #555;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="score-container">
+        <h1 class="score-label" id="scoreLabel">0</h1>
+    </div>
+
+    <div class="button-outer">
+        <button class="button-inner" id="bigButton"></button>
+    </div>
+
+    <div class="bg-menu" id="bgMenu">
+        <div class="color-swatch" id="swatch1" style="background-color: #ffffff;"></div>
+        <div class="color-swatch" id="swatch2" style="background-color: #e0e0e0;"></div>
+        <div class="color-swatch" id="swatch3" style="background-color: #dbe4ff;"></div>
+        <div class="color-swatch" id="swatch4" style="background-color: #fff3c4;"></div>
+        <div class="color-swatch" id="swatch5" style="background-color: #1a1a1a;"></div>
+        <div class="color-swatch" id="swatch6" style="background-color: #333333;"></div>
+        <div class="color-swatch" id="swatch7" style="background-color: #0b162c;"></div>
+        <div class="color-swatch" id="swatch8" style="background-color: #0f2a1a;"></div>
+    </div>
+
+    <script>
+        const bigButton = document.getElementById('bigButton');
+        const scoreLabel = document.getElementById('scoreLabel');
+        const bgMenu = document.getElementById('bgMenu');
+
+        let clicks = 0;
+        let savedBg = '#ffffff';
+        let savedTextCol = '#333333';
+
+        try {
+            clicks = parseInt(localStorage.getItem('anti_doom_clicks')) || 0;
+            savedBg = localStorage.getItem('anti_doom_bg') || '#ffffff';
+            savedTextCol = localStorage.getItem('anti_doom_text') || '#333333';
+        } catch(e) {}
+
+        scoreLabel.textContent = clicks;
+        document.body.style.backgroundColor = savedBg;
+        scoreLabel.style.color = savedTextCol;
+
+        let audioCtx;
+        function playClickSound() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.type = 'square'; 
+                oscillator.frequency.setValueAtTime(150, audioCtx.currentTime); 
+                oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1); 
+                
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.1);
+            } catch(e) {}
+        }
+
+        const colors = [
+            { id: 'swatch1', bg: '#ffffff', text: '#333333' },
+            { id: 'swatch2', bg: '#e0e0e0', text: '#333333' },
+            { id: 'swatch3', bg: '#dbe4ff', text: '#333333' },
+            { id: 'swatch4', bg: '#fff3c4', text: '#333333' },
+            { id: 'swatch5', bg: '#1a1a1a', text: '#ffffff' },
+            { id: 'swatch6', bg: '#333333', text: '#ffffff' },
+            { id: 'swatch7', bg: '#0b162c', text: '#ffffff' },
+            { id: 'swatch8', bg: '#0f2a1a', text: '#ffffff' }
+        ];
+
+        colors.forEach(colorItem => {
+            const el = document.getElementById(colorItem.id);
+            if (el) {
+                el.addEventListener('click', (e) => {
+                    document.body.style.backgroundColor = colorItem.bg;
+                    scoreLabel.style.color = colorItem.text;
+                    try {
+                        localStorage.setItem('anti_doom_bg', colorItem.bg);
+                        localStorage.setItem('anti_doom_text', colorItem.text);
+                    } catch(err) {}
+                });
+            }
+        });
+
+        // Handle press down
+        function pressDown(e) {
+            e.preventDefault();
+            bigButton.classList.add('is-pressed');
+            
+            if (bgMenu.style.display !== 'none') bgMenu.style.display = 'none';
+
+            playClickSound();
+            clicks++;
+            scoreLabel.textContent = clicks;
+            try { localStorage.setItem('anti_doom_clicks', clicks); } catch(err) {}
+        }
+
+        // Handle let go
+        function pressUp(e) {
+            e.preventDefault();
+            bigButton.classList.remove('is-pressed');
+        }
+
+        bigButton.addEventListener('touchstart', pressDown, {passive: false});
+        bigButton.addEventListener('touchend', pressUp);
+        bigButton.addEventListener('mousedown', pressDown);
+        bigButton.addEventListener('mouseup', pressUp);
+        bigButton.addEventListener('mouseleave', pressUp);
+    </script>
+</body>
+</html>
